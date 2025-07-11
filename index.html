@@ -1,0 +1,236 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rafi's Ultimate Code Runner</title>
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --fg: #00ffc8;
+      --accent: #ff0077;
+      --light-bg: #f0f0f0;
+      --light-fg: #222;
+      --light-accent: #0077ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: monospace;
+      background: var(--bg); color: var(--fg);
+      display: flex; flex-direction: column; align-items: center;
+      transition: background 0.3s, color 0.3s;
+    }
+    body.light {
+      background: var(--light-bg); color: var(--light-fg);
+    }
+    header {
+      width: 100%; background: #111;
+      padding: 10px; text-align: center;
+      font-size: 20px; font-weight: bold;
+      text-shadow: 0 0 6px var(--fg);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    #datetime { font-size: 13px; color: #ccc; }
+    .menu-button {
+      background: transparent; color: var(--fg);
+      border: none; font-size: 24px;
+      cursor: pointer; margin-left: 10px;
+    }
+    .menu-dropdown {
+      position: absolute; top: 50px; right: 10px;
+      background: #1c1c1c; border: 1px solid var(--fg);
+      border-radius: 5px; display: none;
+      flex-direction: column;
+      z-index: 9999;
+    }
+    .menu-dropdown button, .menu-dropdown input {
+      background: none; border: none;
+      color: var(--fg); padding: 10px;
+      text-align: left; cursor: pointer;
+      width: 200px;
+    }
+    .toolbar {
+      margin: 10px; display: flex;
+      flex-wrap: wrap; gap: 10px; justify-content: center;
+      max-width: 95%;
+    }
+    .toolbar button {
+      padding: 8px 12px;
+      background: var(--fg); color: #000;
+      border: none; border-radius: 6px;
+      box-shadow: 0 0 6px var(--fg);
+      font-weight: bold; cursor: pointer;
+    }
+    .toolbar button:hover {
+      background: var(--accent); color: #fff;
+    }
+    textarea, iframe, #console {
+      width: 90%; max-width: 800px;
+      border-radius: 6px; border: 1px solid var(--fg);
+      margin: 10px 0; font-family: monospace;
+    }
+    textarea {
+      height: 180px; padding: 10px;
+      background: #111; color: #0f0;
+    }
+    iframe {
+      height: 220px; background: #fff;
+    }
+    #console {
+      height: 100px; background: #000;
+      color: #0f0; overflow-y: auto;
+      padding: 8px; font-size: 13px;
+    }
+    footer {
+      margin: 20px 0; font-size: 14px;
+      color: var(--fg);
+      text-shadow: 0 0 12px var(--fg);
+      font-weight: bold;
+    }
+    body.light footer {
+      color: var(--light-accent);
+      text-shadow: 0 0 10px var(--light-accent);
+    }
+    #fullscreenPreview {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: #fff; z-index: 9999; display: none;
+    }
+    #fullscreenPreview iframe {
+      width: 100%; height: 100%; border: none;
+    }
+    #closePreview {
+      position: absolute; top: 10px; right: 10px;
+      background: red; color: white; border: none;
+      padding: 10px; font-weight: bold; cursor: pointer;
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>⚡ Rafi's Ultimate Code Runner</div>
+    <div id="datetime"></div>
+    <button class="menu-button" onclick="toggleMenu()">☰</button>
+    <div class="menu-dropdown" id="menu">
+      <button onclick="aiSuggest()">🤖 AI Code Suggest</button>
+      <button onclick="apkGuide()">📱 Make APK</button>
+      <button onclick="toggleTheme()">🌙 Toggle Theme</button>
+      <input type="color" onchange="customizeColor(this.value)" title="Pick Theme Color" />
+    </div>
+  </header>  <div class="toolbar">
+    <button onclick="runCode()">▶ Run</button>
+    <button onclick="clearAll()">🧹 Clear</button>
+    <button onclick="exportCode()">💾 Export</button>
+    <button onclick="importCode()">📂 Import</button>
+    <button onclick="saveCode()">📥 Save</button>
+    <button onclick="loadCode()">📤 Load</button>
+    <button onclick="beautifyCode()">✨ Beautify</button>
+    <button onclick="showStats()">📊 Stats</button>
+    <button onclick="showFullPreview()">🖥 Full Screen Preview</button>
+  </div>  <textarea id="editor" placeholder="Write your HTML/JS/CSS here..."></textarea>  <iframe id="preview" sandbox="allow-scripts allow-same-origin"></iframe>
+  <div id="console">Console output will appear here...</div>  <div id="fullscreenPreview">
+    <button id="closePreview" onclick="closeFullPreview()">✖ Close</button>
+    <iframe id="fullscreenFrame"></iframe>
+  </div>  <footer>
+    🚀 Developer Rafi
+  </footer>  <script src="https://cdn.jsdelivr.net/npm/js-beautify/js/lib/beautify.js"></script>  <script>
+    const editor = document.getElementById('editor');
+    const preview = document.getElementById('preview');
+    const consoleBox = document.getElementById('console');
+    const menu = document.getElementById('menu');
+    const fullscreen = document.getElementById('fullscreenPreview');
+    const fullscreenFrame = document.getElementById('fullscreenFrame');
+
+    function toggleMenu() {
+      menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    function runCode() {
+      const code = editor.value;
+      const wrapper = `
+        <script>
+          window.onerror = function(msg) { parent.postMessage('Error: ' + msg, '*'); };
+          console.log = function(...args) { parent.postMessage(args.join(' '), '*'); };
+        <\/script>
+      `;
+      preview.srcdoc = wrapper + code;
+      fullscreenFrame.srcdoc = wrapper + code;
+    }
+
+    window.addEventListener('message', e => {
+      consoleBox.innerText += '\n' + e.data;
+    });
+
+    function clearAll() {
+      editor.value = '';
+      preview.srcdoc = '';
+      fullscreenFrame.srcdoc = '';
+      consoleBox.innerText = 'Console output will appear here...';
+    }
+
+    function exportCode() {
+      const blob = new Blob([editor.value], {type: 'text/html'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'rafi_code.html';
+      a.click();
+    }
+
+    function importCode() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.html,.txt';
+      input.onchange = () => {
+        const reader = new FileReader();
+        reader.onload = () => editor.value = reader.result;
+        reader.readAsText(input.files[0]);
+      };
+      input.click();
+    }
+
+    function saveCode() {
+      localStorage.setItem('rafi_code', editor.value);
+      alert('✅ Code saved!');
+    }
+
+    function loadCode() {
+      editor.value = localStorage.getItem('rafi_code') || '';
+    }
+
+    function beautifyCode() {
+      editor.value = js_beautify(editor.value);
+    }
+
+    function showStats() {
+      alert(`Lines: ${editor.value.split('\n').length}\nCharacters: ${editor.value.length}`);
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle('light');
+    }
+
+    function apkGuide() {
+      const confirmApk = confirm('🛠 Convert to APK? Exported HTML will be used. Proceed?');
+      if (confirmApk) exportCode();
+    }
+
+    function aiSuggest() {
+      alert('🤖 Coming soon: AI Code Suggestion by Rafi Engine.');
+    }
+
+    function customizeColor(color) {
+      document.documentElement.style.setProperty('--fg', color);
+    }
+
+    function showFullPreview() {
+      fullscreen.style.display = 'block';
+    }
+
+    function closeFullPreview() {
+      fullscreen.style.display = 'none';
+    }
+
+    setInterval(() => {
+      document.getElementById("datetime").innerText = new Date().toLocaleTimeString();
+    }, 1000);
+  </script></body>
+</html>
